@@ -30,12 +30,18 @@ export default function KostCard({ kost }: KostCardProps) {
       {/* FOTO KOST */}
       <div className="relative h-56 overflow-hidden">
 
-        <img
-          src={kost.fotos[0]}
-          alt={`Foto ${kost.nama}`}
-          loading="lazy"
-          className="h-full w-full object-cover transition duration-500 group-hover:scale-105"
-        />
+        {kost.fotos[0] ? (
+          <img
+            src={kost.fotos[0]}
+            alt={`Foto ${kost.nama}`}
+            loading="lazy"
+            className="h-full w-full object-cover transition duration-500 group-hover:scale-105"
+          />
+        ) : (
+          <div className="flex h-full items-center justify-center bg-[#143D2F] text-sm text-[#91A99D]">
+            Foto belum tersedia
+          </div>
+        )}
 
         {/* BADGE */}
         <div className="absolute left-4 top-4 flex flex-wrap gap-2">
@@ -77,7 +83,9 @@ export default function KostCard({ kost }: KostCardProps) {
             size={13}
             className="mr-1 inline text-[#4ADE9F]"
           />
-          {kost.jarakKampusM} m dari UNNES
+          {kost.jarakKampusM === null
+            ? "Jarak belum dicantumkan"
+            : `${kost.jarakKampusM} m dari UNNES`}
         </div>
 
       </div>
@@ -98,9 +106,11 @@ export default function KostCard({ kost }: KostCardProps) {
           </div>
 
           {/* RATING */}
-          <div className="shrink-0 rounded-lg bg-[#143D2F] px-2 py-1 text-xs font-bold text-[#4ADE9F]">
-            ★ {kost.inspeksi.skor}
-          </div>
+          {kost.inspeksi.skor !== null && (
+            <div className="shrink-0 rounded-lg bg-[#143D2F] px-2 py-1 text-xs font-bold text-[#4ADE9F]">
+              ★ {kost.inspeksi.skor}
+            </div>
+          )}
 
         </div>
 

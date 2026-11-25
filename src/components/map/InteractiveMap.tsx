@@ -83,7 +83,11 @@ export default function InteractiveMap({
           <Popup>
             <div className="min-w-40">
               <strong>{kost.nama}</strong>
-              <p>{kost.jarakKampusM} m dari UNNES</p>
+              <p>
+                {kost.jarakKampusM === null
+                  ? "Jarak belum dicantumkan"
+                  : `${kost.jarakKampusM} m dari UNNES`}
+              </p>
               <p>{formatRupiah(kost.harga)}/bln</p>
               <Link href={`/kost/${kost.id}`}>Lihat detail kost</Link>
             </div>

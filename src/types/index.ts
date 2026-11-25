@@ -6,7 +6,7 @@ export interface Kost {
   nama: string;
   tipe: KostType;
   harga: number;
-  jarakKampusM: number;
+  jarakKampusM: number | null;
   lat: number;
   lng: number;
   verified: boolean;
@@ -15,13 +15,13 @@ export interface Kost {
   fasilitasUmum: string[];
   rincianBiaya: {
     sewa: number;
-    listrik: number;
-    air: number;
-    deposit: number;
+    listrik: number | null;
+    air: number | null;
+    deposit: number | null;
   };
   inspeksi: {
-    skor: number;
-    tanggal: string;
+    skor: number | null;
+    tanggal: string | null;
     catatan: string;
   };
   tersedia: boolean;

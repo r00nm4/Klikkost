@@ -20,6 +20,25 @@ You can start editing the page by modifying `app/page.tsx`. The page auto-update
 
 This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
 
+## Database
+
+The app uses PostgreSQL through Prisma. Set `DATABASE_URL` in `.env.local` before
+running database commands. If your runtime connection uses a pooler, set
+`DIRECT_URL` to the direct connection string for Prisma migrations. Keep these
+values private and do not commit them.
+
+```bash
+npm install
+npm run db:generate
+npm run db:validate
+npm run db:migrate
+npm run db:seed
+```
+
+`db:migrate` creates or updates tables in the configured database. Confirm the
+database target before running it. The seed command adds the sample users,
+facilities, landmarks, and kost records.
+
 ## Learn More
 
 To learn more about Next.js, take a look at the following resources:

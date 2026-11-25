@@ -1,0 +1,292 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// ==========================================
+// ENUMS
+// ==========================================
+
+enum Role {
+  STUDENT
+  ADMIN
+}
+
+enum KostGender {
+  PUTRA
+  PUTRI
+  CAMPUR
+}
+
+enum VerificationStatus {
+  PENDING
+  VERIFIED
+  NEEDS_REVISION
+  REJECTED
+}
+
+enum FacilityCategory {
+  BUILDING // Fasilitas umum kost: WiFi, Parkir Motor, Dapur Bersama
+  ROOM     // Fasilitas dalam kamar: AC, KM Dalam, Kasur, Meja Belajar
+}
+
+enum NotificationType {
+  PRICE_DROP
+  ROOM_AVAILABLE
+  VERIFICATION_UPDATE
+  SYSTEM
+}
+
+// ==========================================
+// 1. PENGGUNA
+// ==========================================
+
+model User {
+  id           String   @id @default(cuid())
+  name         String
+  email        String   @unique
+  passwordHash String?  // Opsional jika pakai OAuth (Google) atau Supabase Auth
+  avatarUrl    String?
+  role         Role     @default(STUDENT)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  savedKosts    SavedKost[]
+  viewHistories ViewHistory[]
+  reviews       Review[]
+  notifications Notification[]
+  inspections   Inspection[]   @relation("InspectorUser")
+}
+
+// ==========================================
+// 2. PROPERTI KOST, TIPE KAMAR & FASILITAS
+// ==========================================
+
+model Kost {
+  id                 String             @id @default(cuid())
+  slug               String             @unique
+  name               String
+  description        String             @db.Text
+  gender             KostGender
+  address            String
+  area               String             // Contoh: "Sekaran", "Banaran", "Patemon", "Cempaka"
+  latitude           Float
+  longitude          Float
+  rules              String?            @db.Text // Jam malam, ketentuan tamu, dll.
+
+  // Kontak Pemilik (Direktori WA tanpa akun pemilik)
+  ownerName          String
+  ownerWhatsapp      String             // Format internasional: 62812xxxxxxx
+
+  // Status Validasi & Ringkasan Cache untuk performa filter Home/Peta
+  verificationStatus VerificationStatus @default(PENDING)
+  lastVerifiedAt     DateTime?
+  minPrice           Int                @default(0) // Harga termurah dari RoomType (Rupiah)
+  totalAvailableRoom Int                @default(0)
+  ratingAvg          Float              @default(0)
+  reviewCount        Int                @default(0)
+  isActive           Boolean            @default(true)
+
+  createdAt          DateTime           @default(now())
+  updatedAt          DateTime           @updatedAt
+
+  roomTypes     RoomType[]
+  images        KostImage[]
+  facilities    KostFacility[]
+  distances     KostDistance[]
+  inspections   Inspection[]
+  savedBy       SavedKost[]
+  viewedBy      ViewHistory[]
+  reviews       Review[]
+
+  @@index([gender, verificationStatus, minPrice])
+  @@index([area])
+  @@index([latitude, longitude])
+}
+
+model RoomType {
+  id             String   @id @default(cuid())
+  kostId         String
+  name           String   // Contoh: "Tipe Reguler", "Tipe AC + KM Dalam"
+  priceMonthly   Int      // Dalam Rupiah (integer, bukan float)
+  sizeDesc       String?  // Contoh: "3x3 m", "3x4 m"
+  totalRooms     Int
+  availableRooms Int
+  includeElectric Boolean @default(false)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  kost       Kost               @relation(fields: [kostId], references: [id], onDelete: Cascade)
+  facilities RoomTypeFacility[]
+
+  @@index([kostId, priceMonthly])
+}
+
+model KostImage {
+  id        String   @id @default(cuid())
+  kostId    String
+  url       String
+  caption   String?  // Contoh: "Tampak Depan", "Kamar Tipe AC", "Parkiran"
+  isPrimary Boolean  @default(false)
+  sortOrder Int      @default(0)
+  createdAt DateTime @default(now())
+
+  kost Kost @relation(fields: [kostId], references: [id], onDelete: Cascade)
+
+  @@index([kostId, sortOrder])
+}
+
+model Facility {
+  id       String           @id @default(cuid())
+  name     String           @unique // Contoh: "WiFi", "AC", "Kamar Mandi Dalam"
+  iconName String?          // Nama ikon Lucide React, misal: "Wifi", "Wind", "Bath"
+  category FacilityCategory
+
+  kosts     KostFacility[]
+  roomTypes RoomTypeFacility[]
+}
+
+model KostFacility {
+  kostId     String
+  facilityId String
+
+  kost     Kost     @relation(fields: [kostId], references: [id], onDelete: Cascade)
+  facility Facility @relation(fields: [facilityId], references: [id], onDelete: Cascade)
+
+  @@id([kostId, facilityId])
+}
+
+model RoomTypeFacility {
+  roomTypeId String
+  facilityId String
+
+  roomType RoomType @relation(fields: [roomTypeId], references: [id], onDelete: Cascade)
+  facility Facility @relation(fields: [facilityId], references: [id], onDelete: Cascade)
+
+  @@id([roomTypeId, facilityId])
+}
+
+// ==========================================
+// 3. GEOSPASIAL & FAKULTAS UNNES
+// ==========================================
+
+model CampusLandmark {
+  id        String @id @default(cuid())
+  code      String @unique // Contoh: "FMIPA", "FT", "FEB", "GERBANG_UTAMA"
+  name      String         // Contoh: "Fakultas MIPA UNNES"
+  latitude  Float
+  longitude Float
+
+  distances KostDistance[]
+}
+
+model KostDistance {
+  id             String @id @default(cuid())
+  kostId         String
+  landmarkId     String
+  distanceMeters Int    // Jarak dalam meter (memudahkan filter < 500m)
+  walkMinutes    Int    // Estimasi jalan kaki
+  rideMinutes    Int    // Estimasi motor
+
+  kost     Kost           @relation(fields: [kostId], references: [id], onDelete: Cascade)
+  landmark CampusLandmark @relation(fields: [landmarkId], references: [id], onDelete: Cascade)
+
+  @@unique([kostId, landmarkId])
+  @@index([landmarkId, distanceMeters])
+}
+
+// ==========================================
+// 4. INSPEKSI FISIK TIM KLIKKOST
+// ==========================================
+
+model Inspection {
+  id          String             @id @default(cuid())
+  kostId      String
+  inspectorId String
+  inspectedAt DateTime           @default(now())
+  status      VerificationStatus
+  score       Int                // Skor 0 - 100 dari hasil checklist
+  summaryNote String?            @db.Text
+
+  kost      Kost             @relation(fields: [kostId], references: [id], onDelete: Cascade)
+  inspector User             @relation("InspectorUser", fields: [inspectorId], references: [id])
+  items     InspectionItem[]
+
+  @@index([kostId, inspectedAt])
+}
+
+model InspectionItem {
+  id           String  @id @default(cuid())
+  inspectionId String
+  criterion    String  // Contoh: "Kesesuaian foto dengan kondisi asli", "Aliran air lancar", "Keamanan pagar/CCTV"
+  isPassed     Boolean
+  note         String? // Catatan lapangan spesifik jika ada temuan
+
+  inspection Inspection @relation(fields: [inspectionId], references: [id], onDelete: Cascade)
+
+  @@index([inspectionId])
+}
+
+// ==========================================
+// 5. INTERAKSI MAHASISWA
+// ==========================================
+
+model SavedKost {
+  id        String   @id @default(cuid())
+  userId    String
+  kostId    String
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  kost Kost @relation(fields: [kostId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, kostId])
+  @@index([userId, createdAt])
+}
+
+model ViewHistory {
+  id       String   @id @default(cuid())
+  userId   String
+  kostId   String
+  viewedAt DateTime @default(now()) // Gunakan upsert untuk memperbarui timestamp ini
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  kost Kost @relation(fields: [kostId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, kostId])
+  @@index([userId, viewedAt])
+}
+
+model Review {
+  id        String   @id @default(cuid())
+  userId    String
+  kostId    String
+  rating    Int      // Validasi 1-5 di level aplikasi/Zod
+  comment   String   @db.Text
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  kost Kost @relation(fields: [kostId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, kostId]) // 1 mahasiswa hanya bisa 1 ulasan per kost
+  @@index([kostId, createdAt])
+}
+
+model Notification {
+  id        String           @id @default(cuid())
+  userId    String
+  type      NotificationType
+  title     String
+  message   String
+  linkUrl   String?          // Contoh: "/kost/kost-melati-sekaran"
+  isRead    Boolean          @default(false)
+  createdAt DateTime         @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, isRead, createdAt])
+}
